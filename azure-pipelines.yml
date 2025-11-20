@@ -1,0 +1,47 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+  tags:
+    include:
+      - "*"
+  paths:
+    exclude:
+      - README.md
+      - .editorconfig
+
+pool: Default
+
+variables:
+  REPOSITORY: ops/ec2-checker
+
+resources:
+  repositories:
+    - repository: ops-pipelines
+      type: git
+      name: OPS/ops-pipelines
+
+steps:
+  - script: |
+      latest_tag=$(git describe --tags --abbrev=0 2>/dev/null)
+      if [ $? -eq 0 ]; then
+        echo "Latest Git tag: $latest_tag"
+      else
+        echo "No tags found in this repository, using short hash"
+        latest_tag=$(git rev-parse --short HEAD)
+      fi
+
+      echo "##vso[task.setvariable variable=IMAGE_TAG]$latest_tag"
+    env: { sourceVersion: $(Build.SourceVersion) }
+    displayName: Create image tag variable
+
+  - template: templates/docker-build.yaml@ops-pipelines
+    parameters:
+      dockerfile: Dockerfile
+      repository: $(REPOSITORY)
+      image_tag: "$(IMAGE_TAG)"
+      multi_platform: true
+      sync_china: true
+      sync_eti: true

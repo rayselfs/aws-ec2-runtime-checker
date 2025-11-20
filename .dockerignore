@@ -1,0 +1,17 @@
+.git
+.gitignore
+.env
+.idea/
+.vscode/
+*.swp
+*.bak
+*.tmp
+*.log
+vendor/
+coverage.out
+dist/
+build/
+tmp/
+azure-pipelines.yml
+README.md
+.editorconfig

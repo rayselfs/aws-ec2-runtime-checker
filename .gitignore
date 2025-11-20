@@ -1,0 +1,28 @@
+# Binaries for programs and plugins
+*.exe
+*.dll
+*.so
+*.dylib
+*.rpm
+*.deb
+*.apk
+*.bin
+
+# Test binaries
+*_test
+
+# Output of the go installer
+*.out
+
+# Editor/IDE-specific files:
+.idea/
+.vscode/
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+
+# Dependency directories (golang dep, go modules etc.)
+vendor/
+
+# Go build cache
+.go/
