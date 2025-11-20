@@ -92,3 +92,7 @@ docker run --rm \
 
 > [!NOTE]
 > Ensure you pass AWS credentials to the container, either via environment variables (as shown) or by mounting your `~/.aws` directory.
+
+## License
+
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
