@@ -1,98 +1,175 @@
-# AWS EC2 Long-Running Checker
+# AWS EC2 Runtime Checker
 
-This tool checks for AWS EC2 instances of specific types that have been running longer than a configured threshold. It sends notifications via AWS SNS and can optionally terminate the instances.
+<p align="center">
+    <a href="https://opensource.org/licenses/Apache-2.0"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" /></a>
+    <a href="https://artifacthub.io/packages/search?repo=rayselfs-charts"><img src="https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/rayselfs" /></a>
+</p>
+
+Monitors AWS EC2 instances and automatically terminates those exceeding configured runtime thresholds.
+
+## Features
+
+- 🔍 **Instance Monitoring**: Tracks EC2 instances by type and runtime duration
+- ⏰ **Flexible Scheduling**: Supports both Kubernetes CronJob and Deployment modes
+- 🎯 **Per-Type Configuration**: Set different runtime thresholds for each instance type
+- 🛡️ **Dry Run Mode**: Test without actually terminating instances
+- 🔔 **SNS Notifications**: Sends alerts before taking action
 
 ## Prerequisites
 
-- Go 1.18+
-- AWS Credentials configured (e.g., `~/.aws/credentials` or environment variables)
-- IAM permissions:
-  - `ec2:DescribeInstances`
-  - `ec2:TerminateInstances` (if using DELETE mode)
-  - `sns:Publish`
+- Kubernetes 1.23+
+- Helm 3.8.0+
+- AWS credentials with appropriate permissions
 
 ## Installation
 
+### Using Helm (Recommended)
+
 ```bash
-git clone <repository-url>
-cd ec2-checker
-go build -o ec2-checker
+helm repo add aws-ec2-runtime-checker https://rayselfs.github.io/aws-ec2-runtime-checker
+helm install aws-ec2-runtime-checker aws-ec2-runtime-checker/aws-ec2-runtime-checker
+```
+
+For detailed Helm configuration options, IAM policies, and deployment modes, see the [Helm Chart README](charts/aws-ec2-runtime-checker/README.md).
+
+### From Source
+
+```bash
+git clone https://github.com/rayselfs/aws-ec2-runtime-checker
+cd aws-ec2-runtime-checker
+helm install aws-ec2-runtime-checker ./charts/aws-ec2-runtime-checker
+```
+
+## Quick Start
+
+### Basic Configuration
+
+Create a `values.yaml` file:
+
+```yaml
+aws:
+  region: "us-east-1"
+
+dryRun: true # Set to false to enable actual termination
+
+targets:
+  - instanceType: "t2.micro"
+    maxRuntimeHours: 24
+  - instanceType: "t3.micro"
+    maxRuntimeHours: 48
+```
+
+Install with custom values:
+
+```bash
+helm install aws-ec2-runtime-checker aws-ec2-runtime-checker/aws-ec2-runtime-checker -f values.yaml
+```
+
+For complete configuration options and production setup, refer to the [Helm Chart README](charts/aws-ec2-runtime-checker/README.md).
+
+### Config File Format
+
+The `config.json` file (mounted via ConfigMap) should contain:
+
+```json
+[
+  {
+    "instanceType": "t2.micro",
+    "maxRuntimeHours": 24
+  },
+  {
+    "instanceType": "t3.micro",
+    "maxRuntimeHours": 48
+  }
+]
 ```
 
 ## Usage
 
-The tool is configured via environment variables:
+### Deployment Mode (Continuous Monitoring)
 
-| Variable            | Description                                                                 | Required | Default |
-| ------------------- | --------------------------------------------------------------------------- | -------- | ------- |
-| `TARGET_EC2_TYPES`  | Comma-separated list of instance types to check (e.g., `t3.micro,m5.large`) | Yes      | -       |
-| `MAX_RUNTIME_HOURS` | Maximum allowed runtime in hours (e.g., `24`, `0.5`)                        | Yes      | -       |
-| `SNS_TOPIC_ARN`     | ARN of the SNS topic to send notifications to                               | No       | -       |
-| `AWS_REGION`        | AWS Region (e.g., `us-east-1`)                                              | Yes      | -       |
-| `DELETE_ENABLE`     | Set to `true` to enable instance termination                                | No       | `false` |
+```yaml
+kind: Deployment
+replicaCount: 2
+schedule: "*/5 * * * *" # Every 5 minutes
 
-### Example: Notify Only
+leaderElection:
+  enabled: true # Required when replicaCount > 1
+```
+
+### CronJob Mode (Scheduled Checks)
+
+```yaml
+kind: CronJob
+schedule: "0 */6 * * *" # Every 6 hours
+```
+
+### Local Development
 
 ```bash
+# Build
+go build -o ec2-checker ./cmd/ec2-checker
+
+# Run single check
+export CONFIG_PATH=./config.json
 export AWS_REGION=us-east-1
-export TARGET_EC2_TYPES=t3.micro,t2.micro
-export MAX_RUNTIME_HOURS=24
-export SNS_TOPIC_ARN=arn:aws:sns:us-east-1:123456789012:MyTopic
-export DELETE_ENABLE=false
-
+export DRY_RUN=true
 ./ec2-checker
+
+# Run in cron mode
+export SCHEDULE="* * * * *"
+./ec2-checker cron
 ```
 
-### Example: Notify and Delete
+## Project Structure
+
+```
+.
+├── cmd/
+│   └── ec2-checker/        # Main application entry point
+│       ├── main.go
+│       └── main_test.go
+├── internal/
+│   ├── checker/            # EC2 checking logic
+│   │   ├── checker.go
+│   │   └── checker_test.go
+│   ├── config/             # Configuration management
+│   │   ├── config.go
+│   │   └── config_test.go
+│   └── k8s/                # Kubernetes utilities
+│       ├── client.go
+│       └── election.go
+├── charts/
+│   └── ec2-checker/        # Helm chart
+└── .github/
+    └── workflows/          # CI/CD pipelines
+```
+
+## How It Works
+
+1. **Discovery**: Lists all running EC2 instances matching configured types
+2. **Filtering**: Applies server-side filtering by instance type for efficiency
+3. **Runtime Check**: Calculates runtime since launch time
+4. **Action**:
+   - Logs instances exceeding thresholds
+   - Sends SNS notification (if configured)
+   - Terminates instances (unless in dry run mode)
+5. **Scheduling**: Waits until next scheduled run (in cron mode)
+
+## Testing
 
 ```bash
-export AWS_REGION=us-east-1
-export TARGET_EC2_TYPES=c5.large
-export MAX_RUNTIME_HOURS=48
-export SNS_TOPIC_ARN=arn:aws:sns:us-east-1:123456789012:MyTopic
-export DELETE_ENABLE=true
+# Run all tests
+go test ./...
 
-./ec2-checker
+# Run with coverage
+go test -cover ./...
 ```
-
-## Logic
-
-1.  **List Instances**: Finds all instances in `running` state.
-2.  **Filter**: Keeps only instances matching `TARGET_EC2_TYPES`.
-3.  **Check Runtime**: Calculates runtime (`Now - LaunchTime`).
-4.  **Action**:
-    - If runtime > `MAX_RUNTIME_HOURS`, adds to the report.
-    - Sends a single SNS notification with the list of long-running instances.
-    - If `DELETE_ENABLE` is `true`, terminates the identified instances immediately.
-
-## Docker
-
-You can run the tool using Docker.
-
-### Build
-
-```bash
-docker build -t ec2-checker .
-```
-
-### Run
-
-```bash
-docker run --rm \
-  -e AWS_REGION=us-east-1 \
-  -e TARGET_EC2_TYPES=t3.micro \
-  -e MAX_RUNTIME_HOURS=24 \
-  -e SNS_TOPIC_ARN=arn:aws:sns:us-east-1:123456789012:MyTopic \
-  -e DELETE_ENABLE=false \
-  -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
-  -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
-  -e AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN \
-  ec2-checker
-```
-
-> [!NOTE]
-> Ensure you pass AWS credentials to the container, either via environment variables (as shown) or by mounting your `~/.aws` directory.
 
 ## License
 
 This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
