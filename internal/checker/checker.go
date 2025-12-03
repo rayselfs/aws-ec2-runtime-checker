@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"aws-ec2-runtime-checker/internal/config"
+	"github.com/rayselfs/aws-ec2-runtime-checker/internal/config"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"

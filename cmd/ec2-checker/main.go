@@ -9,9 +9,9 @@ import (
 	"syscall"
 	"time"
 
-	"aws-ec2-runtime-checker/internal/checker"
-	"aws-ec2-runtime-checker/internal/config"
-	"aws-ec2-runtime-checker/internal/k8s"
+	"github.com/rayselfs/aws-ec2-runtime-checker/internal/checker"
+	"github.com/rayselfs/aws-ec2-runtime-checker/internal/config"
+	"github.com/rayselfs/aws-ec2-runtime-checker/internal/k8s"
 
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
