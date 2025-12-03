@@ -8,7 +8,7 @@ RUN go mod download
 COPY . .
 
 ARG TARGETOS TARGETARCH
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -o /app/main ./cmd/ec2-checker/main.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -o /app/main ./cmd/main.go
 
 FROM gcr.io/distroless/static-debian12 AS final
 
