@@ -21,15 +21,17 @@ func TestLoad(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Set environment variables
+	// Set environment variables (required ones must be set)
 	os.Setenv("CONFIG_PATH", tmpfile.Name())
 	os.Setenv("AWS_REGION", "us-east-1")
-	os.Setenv("SCHEDULE", "* * * * *")
 	os.Setenv("DRY_RUN", "true")
-	defer os.Unsetenv("CONFIG_PATH")
-	defer os.Unsetenv("AWS_REGION")
-	defer os.Unsetenv("SCHEDULE")
-	defer os.Unsetenv("DRY_RUN")
+	os.Setenv("SCHEDULE", "* * * * *")
+	defer func() {
+		os.Unsetenv("CONFIG_PATH")
+		os.Unsetenv("AWS_REGION")
+		os.Unsetenv("DRY_RUN")
+		os.Unsetenv("SCHEDULE")
+	}()
 
 	cfg, err := Load()
 	if err != nil {
@@ -55,5 +57,41 @@ func TestLoadMissingConfigPath(t *testing.T) {
 	_, err := Load()
 	if err == nil {
 		t.Error("Expected error when CONFIG_PATH is missing, got nil")
+	}
+}
+
+func TestDryRunDefaultValue(t *testing.T) {
+	// Create a temporary config file
+	content := `[{"instanceType": "t2.micro", "maxRuntimeHours": 24}]`
+	tmpfile, err := os.CreateTemp("", "config.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmpfile.Name())
+
+	if _, err := tmpfile.Write([]byte(content)); err != nil {
+		t.Fatal(err)
+	}
+	if err := tmpfile.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Set required environment variables, but NOT DRY_RUN
+	os.Setenv("CONFIG_PATH", tmpfile.Name())
+	os.Setenv("AWS_REGION", "us-east-1")
+	os.Unsetenv("DRY_RUN")
+	defer func() {
+		os.Unsetenv("CONFIG_PATH")
+		os.Unsetenv("AWS_REGION")
+	}()
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	// DRY_RUN should default to true
+	if !cfg.DryRun {
+		t.Error("Expected DryRun to default to true, got false")
 	}
 }
